@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deal Post Generator</title>
+<style>
+  :root{
+    --paper:#FBF6EE;
+    --ink:#1E1B16;
+    --stamp:#D64545;
+    --stamp-dark:#A83232;
+    --line:#D8CFBE;
+    --muted:#8A8272;
+    --ok:#2E7D5B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:520px;margin:0 auto;}
+
+  .brand{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+  .brand .stamp{
+    background:var(--stamp);color:#fff;font-weight:800;font-size:12px;
+    letter-spacing:.06em;padding:4px 8px;border-radius:3px;transform:rotate(-2deg);
+  }
+  .brand h1{font-size:20px;margin:0;font-weight:800;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:16px;margin-bottom:16px;
+  }
+  label{
+    display:block;font-size:12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted);margin-bottom:6px;
+  }
+  input[type=text]{
+    width:100%;padding:12px 12px;border:1.5px solid var(--line);
+    border-radius:8px;font-size:15px;font-family:inherit;background:#FFFDF9;
+    color:var(--ink);
+  }
+  input[type=text]:focus{outline:none;border-color:var(--stamp);}
+
+  .link-row{margin-bottom:12px;}
+  .link-row:last-child{margin-bottom:0;}
+  .link-input-row{display:flex;gap:8px;align-items:center;}
+  .link-input-row .link-input{flex:1;}
+  .remove-row-btn{
+    flex-shrink:0;width:36px;height:36px;border-radius:8px;border:1.5px solid var(--line);
+    background:#fff;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;
+  }
+  .remove-row-btn:hover{color:var(--stamp);border-color:var(--stamp);}
+
+  button{
+    font-family:inherit;font-weight:700;font-size:15px;border:none;
+    border-radius:8px;padding:13px 16px;cursor:pointer;width:100%;
+    transition:transform .08s ease, opacity .15s ease;
+  }
+  button:active{transform:scale(.98);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+
+  .btn-add{
+    background:#fff;color:var(--ink);border:1.5px dashed var(--line);
+    margin-top:6px;padding:11px 16px;font-size:14px;
+  }
+  .btn-add:hover:not(:disabled){border-color:var(--stamp);color:var(--stamp);}
+
+  .btn-primary{background:var(--stamp);color:#fff;margin-top:14px;}
+  .btn-primary:hover:not(:disabled){background:var(--stamp-dark);}
+
+  .btn-row{display:flex;gap:10px;margin-top:10px;}
+  .btn-secondary{background:var(--ink);color:#fff;}
+  .btn-secondary.copied{background:var(--ok);}
+  .btn-outline{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+  .btn-share{background:var(--ok);color:#fff;margin-top:10px;}
+
+  .status{font-size:13px;color:var(--muted);margin-top:10px;min-height:16px;}
+  .status.err{color:var(--stamp);}
+
+  .warnings{
+    font-size:12px;color:var(--stamp-dark);background:#FBEAEA;border-radius:6px;
+    padding:8px 10px;margin-bottom:12px;line-height:1.4;
+  }
+
+  .preview-img{width:100%;border-radius:8px;display:block;border:1px solid var(--line);background:#F4EFE4;}
+  .title-box{
+    font-size:14px;line-height:1.4;padding:10px;background:#F4EFE4;
+    border-radius:6px;margin-top:10px;white-space:pre-wrap;word-break:break-word;
+  }
+
+  .hidden{display:none !important;}
+
+  .spinner{
+    width:16px;height:16px;border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;display:inline-block;
+    animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .footnote{font-size:11px;color:var(--muted);margin-top:24px;line-height:1.5;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="stamp">DEAL</span>
+    <h1>Post Generator</h1>
+  </div>
+  <p class="sub">Paste any shopping link (Amazon, Flipkart, Myntra, short/affiliate links…) → get a merged image + title.</p>
+
+  <div class="card">
+    <div id="linksContainer"></div>
+    <button type="button" class="btn-add" id="addProductBtn">+ Add product</button>
+    <button class="btn-primary" id="genBtn">Generate</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="warnings hidden" id="warnings"></div>
+
+  <div class="card hidden" id="resultCard">
+    <label>Result</label>
+    <img id="previewImg" class="preview-img" />
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="copyImgBtn">Copy image</button>
+      <button class="btn-outline" id="downloadBtn">Download</button>
+    </div>
+
+    <label style="margin-top:16px;">Title</label>
+    <div class="title-box" id="titleBox"></div>
+    <button class="btn-secondary" id="copyTitleBtn" style="margin-top:10px;">Copy title</button>
+
+    <button class="btn-share hidden" id="shareBtn">Share to WhatsApp</button>
+  </div>
+
+  <p class="footnote">
+    Works fully in your browser; images are merged client-side, nothing is stored anywhere.<br/>
+    One link → single-product mode (all its images merged). Two or more links → collage mode (first image of each, up to 8 products).<br/>
+    On Android Chrome, use <b>Share to WhatsApp</b> for a true one-tap post. On desktop/iPhone, use Copy + paste.
+  </p>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
