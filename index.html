@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deal Post Generator</title>
+<style>
+  :root{
+    --paper:#FBF6EE;
+    --ink:#1E1B16;
+    --stamp:#D64545;
+    --stamp-dark:#A83232;
+    --line:#D8CFBE;
+    --muted:#8A8272;
+    --ok:#2E7D5B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:520px;margin:0 auto;}
+
+  .brand{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:4px;
+  }
+  .brand .stamp{
+    background:var(--stamp);color:#fff;font-weight:800;font-size:12px;
+    letter-spacing:.06em;padding:4px 8px;border-radius:3px;
+    transform:rotate(-2deg);
+  }
+  .brand h1{
+    font-size:20px;margin:0;font-weight:800;letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    padding:16px;margin-bottom:16px;
+  }
+  label{
+    display:block;font-size:12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted);margin-bottom:8px;
+  }
+  input[type=text]{
+    width:100%;padding:12px 12px;border:1.5px solid var(--line);
+    border-radius:8px;font-size:15px;font-family:inherit;background:#FFFDF9;
+    color:var(--ink);
+  }
+  input[type=text]:focus{outline:none;border-color:var(--stamp);}
+
+  button{
+    font-family:inherit;font-weight:700;font-size:15px;border:none;
+    border-radius:8px;padding:13px 16px;cursor:pointer;width:100%;
+    transition:transform .08s ease, opacity .15s ease;
+  }
+  button:active{transform:scale(.98);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+
+  .btn-primary{background:var(--stamp);color:#fff;margin-top:10px;}
+  .btn-primary:hover:not(:disabled){background:var(--stamp-dark);}
+
+  .btn-row{display:flex;gap:10px;margin-top:10px;}
+  .btn-secondary{background:var(--ink);color:#fff;}
+  .btn-secondary.copied{background:var(--ok);}
+  .btn-outline{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+
+  .btn-share{background:var(--ok);color:#fff;margin-top:10px;}
+
+  .status{font-size:13px;color:var(--muted);margin-top:10px;min-height:16px;}
+  .status.err{color:var(--stamp);}
+
+  .preview-img{
+    width:100%;border-radius:8px;display:block;border:1px solid var(--line);
+    background:#F4EFE4;
+  }
+  .title-box{
+    font-size:14px;line-height:1.4;padding:10px;background:#F4EFE4;
+    border-radius:6px;margin-top:10px;white-space:pre-wrap;word-break:break-word;
+  }
+
+  .hidden{display:none !important;}
+
+  .spinner{
+    width:16px;height:16px;border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;display:inline-block;
+    animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .footnote{font-size:11px;color:var(--muted);margin-top:24px;line-height:1.5;text-align:center;}
+  code{background:#F4EFE4;padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="stamp">DEAL</span>
+    <h1>Post Generator</h1>
+  </div>
+  <p class="sub">Paste an Amazon link → get a merged image + title, ready for WhatsApp.</p>
+
+  <div class="card">
+    <label for="link">Amazon product link</label>
+    <input type="text" id="link" placeholder="https://www.amazon.in/dp/..." autocomplete="off" />
+    <button class="btn-primary" id="genBtn">Generate</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card hidden" id="resultCard">
+    <label>Merged image</label>
+    <canvas id="canvas" class="hidden"></canvas>
+    <img id="previewImg" class="preview-img" />
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="copyImgBtn">Copy image</button>
+      <button class="btn-outline" id="downloadBtn">Download</button>
+    </div>
+
+    <label style="margin-top:16px;">Title</label>
+    <div class="title-box" id="titleBox"></div>
+    <button class="btn-secondary" id="copyTitleBtn" style="margin-top:10px;">Copy title</button>
+
+    <button class="btn-share hidden" id="shareBtn">Share to WhatsApp</button>
+  </div>
+
+  <p class="footnote">
+    Works fully in your browser. Images are merged client-side; no data is stored anywhere.<br/>
+    On Android Chrome, use <b>Share to WhatsApp</b> for a true one-tap post. On desktop, use Copy image + Copy title.
+  </p>
+
+</div>
+
+<script>
+// ---- CONFIGURE THIS after deploying your Cloudflare Worker ----
+const WORKER_URL = "https://YOUR-WORKER-SUBDOMAIN.workers.dev";
+// -----------------------------------------------------------------
+
+const linkInput = document.getElementById('link');
+const genBtn = document.getElementById('genBtn');
+const statusEl = document.getElementById('status');
+const resultCard = document.getElementById('resultCard');
+const canvas = document.getElementById('canvas');
+const previewImg = document.getElementById('previewImg');
+const titleBox = document.getElementById('titleBox');
+const copyImgBtn = document.getElementById('copyImgBtn');
+const copyTitleBtn = document.getElementById('copyTitleBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const shareBtn = document.getElementById('shareBtn');
+
+let currentBlob = null;
+let currentTitle = '';
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg || '';
+  statusEl.className = 'status' + (isErr ? ' err' : '');
+}
+
+function setLoading(loading) {
+  genBtn.disabled = loading;
+  genBtn.innerHTML = loading ? '<span class="spinner"></span>Fetching…' : 'Generate';
+}
+
+function proxied(url) {
+  return WORKER_URL + '/img?url=' + encodeURIComponent(url);
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Image failed to load'));
+    img.src = src;
+  });
+}
+
+// Draws `img` into a cellSize x cellSize square, cropping to cover (like CSS object-fit: cover)
+function drawCover(ctx, img, dx, dy, cellSize) {
+  const scale = Math.max(cellSize / img.width, cellSize / img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  const sx = dx - (w - cellSize) / 2;
+  const sy = dy - (h - cellSize) / 2;
+  ctx.drawImage(img, sx, sy, w, h);
+}
+
+async function mergeImages(images) {
+  const count = Math.min(images.length, 6);
+  const cols = count <= 4 ? 2 : 3;
+  const rows = 2;
+  const cellSize = 500;
+
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const loaded = await Promise.all(
+    images.slice(0, cols * rows).map((u) => loadImage(proxied(u)).catch(() => null))
+  );
+
+  loaded.forEach((img, i) => {
+    if (!img) return;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const dx = col * cellSize;
+    const dy = row * cellSize;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(dx, dy, cellSize, cellSize);
+    ctx.clip();
+    drawCover(ctx, img, dx, dy, cellSize);
+    ctx.restore();
+    ctx.strokeStyle = '#FBF6EE';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(dx, dy, cellSize, cellSize);
+  });
+
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.95));
+}
+
+async function generate() {
+  const link = linkInput.value.trim();
+  if (!link) {
+    setStatus('Paste an Amazon product link first.', true);
+    return;
+  }
+  if (WORKER_URL.includes('YOUR-WORKER-SUBDOMAIN')) {
+    setStatus('Set WORKER_URL in index.html to your deployed Cloudflare Worker URL.', true);
+    return;
+  }
+
+  resultCard.classList.add('hidden');
+  setLoading(true);
+  setStatus('Fetching product data…');
+
+  try {
+    const apiUrl = WORKER_URL + '/api?url=' + encodeURIComponent(link);
+    const resp = await fetch(apiUrl);
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      throw new Error(data.error || 'Could not fetch product data.');
+    }
+
+    setStatus('Merging images…');
+    const blob = await mergeImages(data.images);
+    if (!blob) throw new Error('Image merge failed.');
+
+    currentBlob = blob;
+    currentTitle = data.title;
+
+    previewImg.src = URL.createObjectURL(blob);
+    titleBox.textContent = data.title;
+    resultCard.classList.remove('hidden');
+    setStatus('Done. ' + data.images.length + ' images merged.');
+
+    // Show native share button only if the browser can share files (mostly Android Chrome)
+    const file = new File([blob], 'deal.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      shareBtn.classList.remove('hidden');
+    } else {
+      shareBtn.classList.add('hidden');
+    }
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function copyImage() {
+  if (!currentBlob) return;
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': currentBlob }),
+    ]);
+    flashCopied(copyImgBtn, 'Copy image');
+  } catch (err) {
+    setStatus('Clipboard image copy is not supported in this browser. Use Download instead.', true);
+  }
+}
+
+async function copyTitle() {
+  if (!currentTitle) return;
+  try {
+    await navigator.clipboard.writeText(currentTitle);
+    flashCopied(copyTitleBtn, 'Copy title');
+  } catch (err) {
+    setStatus('Could not copy title automatically. Select the text above manually.', true);
+  }
+}
+
+function flashCopied(btn, resetLabel) {
+  btn.textContent = 'Copied ✓';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.textContent = resetLabel;
+    btn.classList.remove('copied');
+  }, 1400);
+}
+
+function downloadImage() {
+  if (!currentBlob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(currentBlob);
+  a.download = 'deal-post.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function shareToWhatsApp() {
+  if (!currentBlob) return;
+  try {
+    const file = new File([currentBlob], 'deal.png', { type: 'image/png' });
+    await navigator.share({
+      files: [file],
+      text: currentTitle,
+      title: currentTitle,
+    });
+  } catch (err) {
+    // user cancelled share sheet, or share failed — no action needed
+  }
+}
+
+genBtn.addEventListener('click', generate);
+linkInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') generate(); });
+copyImgBtn.addEventListener('click', copyImage);
+copyTitleBtn.addEventListener('click', copyTitle);
+downloadBtn.addEventListener('click', downloadImage);
+shareBtn.addEventListener('click', shareToWhatsApp);
+</script>
+</body>
+</html>
